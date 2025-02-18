@@ -1,1 +1,50 @@
 
+import arcpy
+import os
+
+def export_sde_to_gdb(sde_connection, output_gdb):
+    try:
+        # Set environments
+        arcpy.env.overwriteOutput = True
+        arcpy.env.workspace = sde_connection
+
+        # Create output GDB if it doesn't exist
+        if not arcpy.Exists(output_gdb):
+            arcpy.management.CreateFileGDB(
+                out_folder_path=os.path.dirname(output_gdb),
+                out_name=os.path.basename(output_gdb)
+            )
+            print(f"Created File GDB: {output_gdb}")
+
+        # List datasets
+        fcs = arcpy.ListFeatureClasses()
+        tables = arcpy.ListTables()
+
+        # Export feature classes
+        if fcs:
+            arcpy.conversion.FeatureClassToGeodatabase(
+                Input_Features=fcs,
+                Output_Geodatabase=output_gdb
+            )
+            print(f"Copied {len(fcs)} feature classes.")
+
+        # Export tables
+        if tables:
+            arcpy.conversion.TableToGeodatabase(
+                Input_Data=tables,
+                Output_Geodatabase=output_gdb
+            )
+            print(f"Copied {len(tables)} tables.")
+
+        print("Export completed successfully!")
+
+    except arcpy.ExecuteError as e:
+        print(f"ArcPy Error: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    sde_path = r"C:\Path\To\Your\Connection.sde"
+    output_gdb = r"C:\Output\Data.gdb"
+    export_sde_to_gdb(sde_path, output_gdb)
