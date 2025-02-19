@@ -85,3 +85,68 @@ tables = arcpy.ListTables()
 datasets = feature_classes + tables
 
 print(f"Found {len(feature_classes)} feature classes and {len(tables)} tables.")
+======================================================================================
+
+import arcpy
+import os
+import time
+
+def export_sde_to_gdb(sde_connection, output_gdb):
+    try:
+        # Set environments
+        arcpy.env.overwriteOutput = True
+        arcpy.env.workspace = sde_connection
+
+        # Create output GDB if it doesn't exist
+        if not arcpy.Exists(output_gdb):
+            arcpy.management.CreateFileGDB(
+                out_folder_path=os.path.dirname(output_gdb),
+                out_name=os.path.basename(output_gdb)
+            )
+            print(f"Created File GDB: {output_gdb}")
+
+        # List datasets
+        fcs = arcpy.ListFeatureClasses()
+        tables = arcpy.ListTables()
+
+        # Track total datasets
+        total_datasets = len(fcs) + len(tables)
+        print(f"Total datasets to export: {total_datasets}")
+
+        # Export feature classes
+        if fcs:
+            print(f"\nExporting {len(fcs)} feature classes...")
+            start_time = time.time()
+            for i, fc in enumerate(fcs, 1):
+                arcpy.conversion.FeatureClassToGeodatabase(
+                    Input_Features=fc,
+                    Output_Geodatabase=output_gdb
+                )
+                print(f"Exported feature class {i}/{len(fcs)}: {fc}")
+            print(f"Feature classes exported in {time.time() - start_time:.2f} seconds.")
+
+        # Export tables
+        if tables:
+            print(f"\nExporting {len(tables)} tables...")
+            start_time = time.time()
+            for i, table in enumerate(tables, 1):
+                arcpy.conversion.TableToGeodatabase(
+                    Input_Data=table,
+                    Output_Geodatabase=output_gdb
+                )
+                print(f"Exported table {i}/{len(tables)}: {table}")
+            print(f"Tables exported in {time.time() - start_time:.2f} seconds.")
+
+        print("\nExport completed successfully!")
+
+    except arcpy.ExecuteError as e:
+        print(f"ArcPy Error: {e}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    sde_path = r"C:\Path\To\Your\Connection.sde"
+    output_gdb = r"C:\Output\Data.gdb"
+    export_sde_to_gdb(sde_path, output_gdb)
+
