@@ -1,0 +1,87 @@
+
+import arcpy
+import os
+import time
+import multiprocessing
+from tqdm import tqdm  # Install with `pip install tqdm`
+
+# Set parameters
+sde_path = r"C:\path\to\your_connection.sde"  # Update with your SDE connection file path
+output_gdb = r"C:\path\to\output.gdb"  # Update with your desired output File GDB path
+log_file = r"C:\path\to\export_log.txt"  # Log file to track errors
+
+# Create File Geodatabase if not exists
+if not arcpy.Exists(output_gdb):
+    arcpy.CreateFileGDB_management(os.path.dirname(output_gdb), os.path.basename(output_gdb))
+    print(f"Created File GDB: {output_gdb}")
+
+# Get all feature classes and tables in SDE
+arcpy.env.workspace = sde_path
+datasets = arcpy.ListFeatureClasses() + arcpy.ListTables()
+
+# Track progress
+total = len(datasets)
+if total == 0:
+    print("No data found in the SDE.")
+    exit()
+
+# Function to export a dataset
+def export_dataset(dataset):
+    output_path = os.path.join(output_gdb, os.path.basename(dataset))
+    start_time = time.time()
+    
+    try:
+        arcpy.Copy_management(dataset, output_path)
+        duration = round(time.time() - start_time, 2)
+        return (dataset, "Success", duration)
+    except Exception as e:
+        with open(log_file, "a") as log:
+            log.write(f"Failed to export {dataset}: {str(e)}\n")
+        return (dataset, "Failed", 0)
+
+# Run exports in parallel using multiprocessing
+if __name__ == "__main__":
+    print(f"Starting parallel export of {total} datasets...\n")
+    
+    # Use 4 parallel processes (adjust based on your system)
+    pool = multiprocessing.Pool(processes=4)
+
+    # Process with progress bar
+    results = list(tqdm(pool.imap(export_dataset, datasets), total=total))
+
+    # Close the multiprocessing pool
+    pool.close()
+    pool.join()
+
+    # Summary
+    success_count = sum(1 for _, status, _ in results if status == "Success")
+    failed_count = total - success_count
+    print(f"\nExport completed! ✅ {success_count} succeeded, ❌ {failed_count} failed.")
+    if failed_count > 0:
+        print(f"Check the log file for errors: {log_file}")
+========================================================
+
+
+
+import arcpy
+import os
+
+# Set SDE Connection
+sde_path = r"C:\path\to\your_connection.sde"  # Update with your SDE connection file path
+arcpy.env.workspace = sde_path
+
+# Efficiently list feature classes by checking datasets first
+datasets = arcpy.ListDatasets(feature_type="Feature") or [""]
+
+# Collect all feature classes
+feature_classes = []
+for dataset in datasets:
+    feature_classes.extend(arcpy.ListFeatureClasses(feature_dataset=dataset))
+
+# Collect tables
+tables = arcpy.ListTables()
+
+# Merge lists
+datasets = feature_classes + tables
+
+print(f"Found {len(feature_classes)} feature classes and {len(tables)} tables.")
