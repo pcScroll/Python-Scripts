@@ -224,4 +224,93 @@ if __name__ == "__main__":
     sde_path = r"C:\Path\To\Your\Connection.sde"
     output_gdb = r"C:\Output\Data.gdb"
     export_sde_to_gdb(sde_path, output_gdb)
+===========================================
 
+import arcpy
+import os
+import time
+import logging
+
+def setup_logging(log_file):
+    """Set up logging to write to a file."""
+    logging.basicConfig(
+        filename=log_file,
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+    logging.info("Logging initialized.")
+
+def export_sde_to_gdb(sde_connection, output_gdb, log_file):
+    try:
+        # Set up logging
+        setup_logging(log_file)
+        logging.info(f"Exporting from SDE: {sde_connection} to File GDB: {output_gdb}")
+
+        # Set environments
+        arcpy.env.overwriteOutput = True
+        arcpy.env.workspace = sde_connection
+
+        # Create output GDB if it doesn't exist
+        if not arcpy.Exists(output_gdb):
+            arcpy.management.CreateFileGDB(
+                out_folder_path=os.path.dirname(output_gdb),
+                out_name=os.path.basename(output_gdb)
+            )
+            logging.info(f"Created File GDB: {output_gdb}")
+
+        # List datasets
+        fcs = arcpy.ListFeatureClasses()
+        tables = arcpy.ListTables()
+
+        # Track total datasets
+        total_datasets = len(fcs) + len(tables)
+        logging.info(f"Total datasets to export: {total_datasets}")
+
+        # Export feature classes
+        if fcs:
+            logging.info(f"Exporting {len(fcs)} feature classes...")
+            start_time = time.time()
+            for i, fc in enumerate(fcs, 1):
+                try:
+                    # Run the tool and capture the result object
+                    result = arcpy.conversion.FeatureClassToGeodatabase(
+                        Input_Features=fc,
+                        Output_Geodatabase=output_gdb
+                    )
+                    # Log progress and messages
+                    logging.info(f"Exported feature class {i}/{len(fcs)}: {fc}")
+                    logging.info(f"Messages: {result.getMessages()}")
+                except arcpy.ExecuteError as e:
+                    logging.error(f"Failed to export feature class {fc}: {e}")
+            logging.info(f"Feature classes exported in {time.time() - start_time:.2f} seconds.")
+
+        # Export tables
+        if tables:
+            logging.info(f"Exporting {len(tables)} tables...")
+            start_time = time.time()
+            for i, table in enumerate(tables, 1):
+                try:
+                    # Run the tool and capture the result object
+                    result = arcpy.conversion.TableToGeodatabase(
+                        Input_Data=table,
+                        Output_Geodatabase=output_gdb
+                    )
+                    # Log progress and messages
+                    logging.info(f"Exported table {i}/{len(tables)}: {table}")
+                    logging.info(f"Messages: {result.getMessages()}")
+                except arcpy.ExecuteError as e:
+                    logging.error(f"Failed to export table {table}: {e}")
+            logging.info(f"Tables exported in {time.time() - start_time:.2f} seconds.")
+
+        logging.info("Export completed successfully!")
+
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+
+# Example usage
+if __name__ == "__main__":
+    sde_path = r"C:\Path\To\Your\Connection.sde"
+    output_gdb = r"C:\Output\Data.gdb"
+    log_file = r"C:\Output\export_log.txt"  # Path to the log file
+    export_sde_to_gdb(sde_path, output_gdb, log_file)
